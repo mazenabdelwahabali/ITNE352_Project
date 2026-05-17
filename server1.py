@@ -319,4 +319,154 @@ class Clienhandler:
             self._send(payload)
             self._save_file("search", payload)
             self._log(f"Search '{keyword}' --> {len(results)} results from TheMealDB.")
-            
+
+        elif req_type == "FILTER_AREA":
+            value = params.get("value", "")
+            results = self.api.filter_by("a", value)
+            payload = {"type": "RECIPE_LIST", "source": "TheMealDB", "data": results}
+            self._send(payload)
+            self._save_file("filter_area", payload)
+            self._log(f"Filter by area '{value}' --> {len(results)} results from TheMealDB.")
+
+        elif req_type == "FILTER_CATEGORY":
+            value = params.get("value", "")
+            results = self.api.filter_by("c", value)
+            payload = {"type": "RECIPE_LIST", "source": "TheMealDB", "data": results}
+            self._send(payload)
+            self._save_file("filter_category", payload)
+            self._log(f"Filter by category '{value}' --> {len(results)} results from TheMealDB.")
+
+        elif req_type == "RANDOM_RECIPE":
+            recipe = self.api.get_random_recipe()
+            payload = {"type": "RECIPE_DETAIL", "source": "TheMealDB", "data": recipe}
+            self._send(payload)
+            self._save_file("random", payload)
+            recipe_name = recipe["name"] if recipe else "None"
+            self._log(f"Random recipe --> '{recipe_name}' from TheMealDB.")
+
+        elif req_type == "GET_RECIPE_DETAIL":
+            meal_id = params.get("id", "")
+            recipe = self.api.get_recipe_by_detail(meal_id)
+            payload = {"type": "RECIPE_DETAIL", "source": "TheMealDB", "data": recipe}
+            self._send(payload)
+            self._save_file("detail", payload)
+            recipe_name = recipe["name"] if recipe else "Not Found"
+            self._log(f"Detail for ID = '{meal_id}' --> '{recipe_name}' from TheMealDB.")
+
+        elif req_type == "QUIT":
+            self._send({"type": "BYE"})
+            self._log("Client sent QUIT.")
+
+        else:
+            self._send({"type": "ERROR", "message": f"Unknown request type: {req_type}"})
+            self._log(f"Unknown request type: '{req_type}'")
+
+    def _send(self, obj):
+        """
+        """
+        
+        data = json.dumps(obj).encode()
+
+        length = len(data).to_bytes(4, "big")
+
+        self.conn.sendall(length + data)
+
+    def _recv(self):
+        """
+        """
+
+        length_bytes = self._recv_exact(4)
+
+        if length_bytes is None:
+            return None
+        
+        msg_len = int.from_bytes(length_bytes, "big")
+
+        raw = self._recv_exact(msg_len)
+
+        if raw is None:
+            return None
+        
+        return json.loads(raw.decode())
+        
+
+    def _recv_exact(self, n):
+        """
+        """
+        buf = b""
+        while len(buf) < n:
+            chunk = self.conn.recv(n - len(buf))
+            if not chunk:
+                return None
+            buf += chunk
+        return buf
+    
+    def _save_file(self, option, data):
+        """
+        """
+        filename = f"{self.client_name}_{option}_{group_id}.json"
+        try:
+            with open(filename, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except OSError as e:
+            self._log(f"Could not write {filename}: {e}")
+
+    def _log(self, msg):
+        """
+        """
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        print(f"[{timestamp}] [{self.client_name}] {msg}", flush=True)
+
+class Server:
+
+    def __init__(self, host, port):
+        self.host    = host
+        self.port    = port
+        self.api     = APIClient(api_base_url)
+        self.cache = Cache()
+        self.server_socket = None
+
+    def start(self):
+        """
+        """
+
+        self.cache.load(self.api)
+
+        ref_filename = f"reference_cache_{group_id}.json"
+        self.cache.save_to_file(ref_filename)
+
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.bind((self.host, self.port))
+        self.server_socket.listen(5)
+
+        print(f"[Info] Server listening on {self.host}:{self.port}")
+        print(f"[Info] Group: {group_id}")
+        print(f"[Info] Ready for clients. Press Ctrl+C to stop the server.")
+
+        self._accept_loop()
+
+    def _accept_loop(self):
+        """
+        """
+        try:
+            while True:
+
+                conn, addr = self.server_socket.accept()
+                
+                active = threading.active_count() - 1
+                print(f"[Info] New connection from {addr[0]}:{addr[1]}"
+                      f"(Active clients: {active})")
+                
+                handler = Clienhandler(conn, addr, self.cache, self.api)
+                handler.start()
+
+        except KeyboardInterrupt:
+            print("\n[Info] Server shutting down...")
+
+        finally:
+
+            if self.server_socket:
+                self.server_socket.close()
+                print("[Info] Server socket closed.")
