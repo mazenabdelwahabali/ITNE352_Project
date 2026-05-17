@@ -6,7 +6,7 @@ import urllib.request
 import urllib.parse
 import urllib.error
 
-host = "0.0.0.0"
+host = "127.0.0.1"
 port = 5000
 group_id = "Group_5"
 
@@ -108,14 +108,14 @@ class APIClient:
             return self.parse_meal(data["meals"][0])
         return None      
      
-    def _prase_full_recipe(self, meal):
+    def parse_meal(self, meal):
         """
         """
 
         ingreadients = []
 
         for i in range(1, 21):
-            ing = meal.get(f"strIngredinet{i}", "") or ""
+            ing = meal.get(f"strIngredient{i}", "") or ""
             meas= meal.get(f"strMeasure{i}", "") or ""
 
             if ing.strip():
@@ -247,7 +247,7 @@ class Clienhandler:
         """
         try:
            msg = self._recv()
-           if not msg or msg.get("type") != "Hello":
+           if not msg or msg.get("type") != "HELLO":
             print(f"[Warning] Bad handshake from {self.addr}. Closing")
             self.conn.close()
             return
@@ -255,7 +255,7 @@ class Clienhandler:
            self.client_name = msg.get("name", "unknown").strip() or "unknown"
            self._log(f"Connected from {self.addr[0]}:{self.addr[1]}")
 
-           self._send({"type": "Hello_ACK","message": f"welcome, {self.client_name}!"})
+           self._send({"type": "HELLO_ACK","message": f"welcome, {self.client_name}!"})
 
            while True:
                request = self._recv()
@@ -267,6 +267,7 @@ class Clienhandler:
                params = request.get("params", {})
 
                self._log(f"Received : {req_type} params = {params}")
+               self._process_request(req_type, params)
 
         except (ConnectionResetError, BrokenPipeError, OSError) as e:
 
@@ -282,7 +283,6 @@ class Clienhandler:
         """
 
         if req_type == "GET_CATEGORIES":
-
             self._send({
                 "type":  "CATEGORIES",
                 "source": "cache",
@@ -290,8 +290,8 @@ class Clienhandler:
             })
             self._log(f"Served {len(self.cache.categories)} categories from cache.")
 
-        elif req_type == "GET_AREAS":
 
+        elif req_type == "GET_AREAS":
             self._send({
                 "type":  "AREAS",
                 "source": "cache",
@@ -300,7 +300,6 @@ class Clienhandler:
             self._log(f"Served {len(self.cache.areas)} areas from cache.")
 
         elif req_type == "GET_INGREDIENTS":
-            
             ingredients_slice = self.cache.ingredients[:max_inger]
             self._send({
                 "type":  "INGREDIENTS",
@@ -308,36 +307,45 @@ class Clienhandler:
                 "data":   ingredients_slice
             })
             self._log(f"Served {len(ingredients_slice)} ingredients from cache.")
+
         elif req_type == "SEARCH_BY_NAME":
-
             keyword = params.get("keyword", "")
-
             results = self.api_client.search_by_name(keyword)
-
             payload = {"type": "RECIPE_LIST", "source": "TheMealDB", "data": results}
-
             self._send(payload)
             self._save_file("search", payload)
             self._log(f"Search '{keyword}' --> {len(results)} results from TheMealDB.")
 
+
         elif req_type == "FILTER_AREA":
             value = params.get("value", "")
-            results = self.api.filter_by("a", value)
+            results = self.api_client.filter_by("a", value)
             payload = {"type": "RECIPE_LIST", "source": "TheMealDB", "data": results}
             self._send(payload)
             self._save_file("filter_area", payload)
             self._log(f"Filter by area '{value}' --> {len(results)} results from TheMealDB.")
 
+
         elif req_type == "FILTER_CATEGORY":
             value = params.get("value", "")
-            results = self.api.filter_by("c", value)
+            results = self.api_client.filter_by("c", value)
             payload = {"type": "RECIPE_LIST", "source": "TheMealDB", "data": results}
             self._send(payload)
             self._save_file("filter_category", payload)
             self._log(f"Filter by category '{value}' --> {len(results)} results from TheMealDB.")
 
+
+        elif req_type == "FILTER_INGREDIENT":
+             value = params.get("value", "")
+             results = self.api_client.filter_by("i", value)
+             payload = {"type": "RECIPE_LIST", "source": "TheMealDB", "data": results}
+             self._send(payload)
+             self._save_file("filter_ingredient", payload)
+             self._log(f"Filter by ingredient '{value}' --> {len(results)} results from TheMealDB.")
+
+
         elif req_type == "RANDOM_RECIPE":
-            recipe = self.api.get_random_recipe()
+            recipe = self.api_client.get_random_recipe()
             payload = {"type": "RECIPE_DETAIL", "source": "TheMealDB", "data": recipe}
             self._send(payload)
             self._save_file("random", payload)
@@ -346,7 +354,7 @@ class Clienhandler:
 
         elif req_type == "GET_RECIPE_DETAIL":
             meal_id = params.get("id", "")
-            recipe = self.api.get_recipe_by_detail(meal_id)
+            recipe = self.api_client.get_recipe_by_detail(meal_id)
             payload = {"type": "RECIPE_DETAIL", "source": "TheMealDB", "data": recipe}
             self._send(payload)
             self._save_file("detail", payload)
@@ -470,3 +478,8 @@ class Server:
             if self.server_socket:
                 self.server_socket.close()
                 print("[Info] Server socket closed.")
+
+
+if __name__ == "__main__":
+    server = Server(host, port)
+    server.start()
