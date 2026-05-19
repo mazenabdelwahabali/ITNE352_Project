@@ -239,8 +239,275 @@ class ReferenceMenu:
 
 ### server.py
 
-*(Amar — if you have any changes, just do it or add more if you can)*
-*(Amar if you have any changes, just do it or add more if you can)*
+The server is responsible for managing API connections, caching reference data, and handling multiple clients simultaneously using multithreading.
+
+#### Class APIClient
+
+This class connects to TheMealDB API and fetches all recipe-related data. It handles URL encoding, HTTP requests, error handling, and parses raw API responses into clean structured dictionaries.
+
+```python
+class APIClient:
+    # Sends an HTTP GET request to the given endpoint with a 10-second timeout
+    def fetch(self, endpoint):
+        url = self.base_url + endpoint
+        with urllib.request.urlopen(url, timeout=10) as response:
+            return json.loads(response.read().decode())
+
+    # URL-encodes the search keyword and returns a list of matching meals
+    def search_by_name(self, keyword):
+        endpoint = "search.php?s=" + urllib.parse.quote(keyword)
+        data = self.fetch(endpoint)
+        if data and data.get("meals"):
+            results = []
+            for meal in data["meals"]:
+                results.append({
+                    "idMeal":    meal["idMeal"],
+                    "name":      meal["strMeal"],
+                    "thumbnail": meal["strMealThumb"]
+                })
+            return results
+        return []
+
+    # Filters meals by category (c=), area (a=), or ingredient (i=), enforcing the max_list limit
+    def filter_by(self, filter_key, value):
+        endpoint = f"filter.php?{filter_key}=" + urllib.parse.quote(value)
+        data = self.fetch(endpoint)
+        if data and data.get("meals"):
+            results = []
+            for meal in data["meals"][:max_list]:
+                results.append({
+                    "idMeal":    meal["idMeal"],
+                    "name":      meal["strMeal"],
+                    "thumbnail": meal["strMealThumb"]
+                })
+            return results
+        return []
+
+    # Fetches full recipe details for a specific meal ID using the lookup endpoint
+    def get_recipe_by_detail(self, meal_id):
+        endpoint = f"lookup.php?i={meal_id}"
+        data = self.fetch(endpoint)
+        if data and data.get("meals"):
+            return self.parse_meal(data["meals"][0])
+        return None
+
+    # Calls the random.php endpoint and returns one fully parsed random recipe
+    def get_random_recipe(self):
+        data = self.fetch("random.php")
+        if data and data.get("meals"):
+            return self.parse_meal(data["meals"][0])
+        return None
+
+    # Combines the 20 numbered ingredient and measure fields from TheMealDB into one clean list
+    def parse_meal(self, meal):
+        ingredients = []
+        for i in range(1, 21):
+            ing  = meal.get(f"strIngredient{i}", "") or ""
+            meas = meal.get(f"strMeasure{i}",   "") or ""
+            if ing.strip():
+                combined = f"{meas.strip()} {ing.strip()}".strip()
+                ingredients.append(combined)
+        return {
+            "idMeal":       meal.get("idMeal"),
+            "name":         meal.get("strMeal"),
+            "category":     meal.get("strCategory"),
+            "area":         meal.get("strArea"),
+            "instructions": meal.get("strInstructions"),
+            "ingredients":  ingredients,
+            "youtube":      meal.get("strYoutube"),
+            "source":       meal.get("strSource"),
+            "tags":         meal.get("strTags"),
+            "thumbnail":    meal.get("strMealThumb")
+        }
+```
+
+#### Class Cache
+
+This class manages in-memory storage of static reference data (categories, areas, and ingredients) loaded at server startup, avoiding repeated API calls for each client request. The cache is additionally saved to a local JSON file for persistence.
+
+```python
+class Cache:
+    # Calls the APIClient to load categories, areas, and ingredients into memory at startup
+    def load(self, api_client):
+        print("[info] Loading reference cache from TheMealDB...")
+        self.categories  = api_client.get_categories()
+        self.areas       = api_client.get_areas()
+        self.ingredients = api_client.get_ingredients()
+        self.is_loaded   = True
+
+    # Writes the in-memory reference data to a local JSON file for persistence
+    def save_to_file(self, filename):
+        data_to_save = {
+            "categories":  self.categories,
+            "areas":       self.areas,
+            "ingredients": self.ingredients[:max_inger],
+        }
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(data_to_save, f, indent=2, ensure_ascii=False)
+            print(f"[Info] Reference cache saved to {filename}")
+```
+#### Class Clienhandler
+
+This class operates on a separate thread for each connected client, initiating a HELLO handshake to identify the user. It then maintains a persistent loop to receive and route requests, fetching recipe-related data, sending responses back to the client, and saving a JSON log file to disk.
+
+```python
+class Clienhandler:
+    # Spawns a background daemon thread so each client runs independently
+    def start(self):
+        thread = threading.Thread(target=self.handle, daemon=True)
+        thread.start()
+
+    # Validates the HELLO handshake then enters the main request processing loop
+    def handle(self):
+        msg = self._recv()
+        if not msg or msg.get("type") != "HELLO":
+            print(f"[Warning] Bad handshake from {self.addr}. Closing")
+            self.conn.close()
+            return
+        self.client_name = msg.get("name", "unknown").strip() or "unknown"
+        self._log(f"Connected from {self.addr[0]}:{self.addr[1]}")
+        self._send({"type": "HELLO_ACK", "message": f"welcome, {self.client_name}!"})
+        while True:
+            request = self._recv()
+            if request is None:
+                break
+            req_type = request.get("type", "")
+            params   = request.get("params", {})
+            self._log(f"Received: {req_type} params={params}")
+            self._process_request(req_type, params)
+
+    # Routes each request type to the correct data source, either cache or the live API
+    def _process_request(self, req_type, params):
+        if req_type == "GET_CATEGORIES":
+            self._send({"type": "CATEGORIES", "source": "cache", "data": self.cache.categories})
+
+        elif req_type == "GET_AREAS":
+            self._send({"type": "AREAS", "source": "cache", "data": self.cache.areas})
+
+        elif req_type == "GET_INGREDIENTS":
+            ingredients_slice = self.cache.ingredients[:max_inger]
+            self._send({"type": "INGREDIENTS", "source": "cache", "data": ingredients_slice})
+
+        elif req_type == "SEARCH_BY_NAME":
+            keyword = params.get("keyword", "")
+            results = self.api_client.search_by_name(keyword)
+            payload = {"type": "RECIPE_LIST", "source": "TheMealDB", "data": results}
+            self._send(payload)
+            self._save_file("search", payload)
+
+        elif req_type == "FILTER_AREA":
+            value   = params.get("value", "")
+            results = self.api_client.filter_by("a", value)
+            payload = {"type": "RECIPE_LIST", "source": "TheMealDB", "data": results}
+            self._send(payload)
+            self._save_file("filter_area", payload)
+
+        elif req_type == "FILTER_CATEGORY":
+            value   = params.get("value", "")
+            results = self.api_client.filter_by("c", value)
+            payload = {"type": "RECIPE_LIST", "source": "TheMealDB", "data": results}
+            self._send(payload)
+            self._save_file("filter_category", payload)
+
+        elif req_type == "FILTER_INGREDIENT":
+            value   = params.get("value", "")
+            results = self.api_client.filter_by("i", value)
+            payload = {"type": "RECIPE_LIST", "source": "TheMealDB", "data": results}
+            self._send(payload)
+            self._save_file("filter_ingredient", payload)
+
+        elif req_type == "RANDOM_RECIPE":
+            recipe  = self.api_client.get_random_recipe()
+            payload = {"type": "RECIPE_DETAIL", "source": "TheMealDB", "data": recipe}
+            self._send(payload)
+            self._save_file("random", payload)
+
+        elif req_type == "GET_RECIPE_DETAIL":
+            meal_id = params.get("id", "")
+            recipe  = self.api_client.get_recipe_by_detail(meal_id)
+            payload = {"type": "RECIPE_DETAIL", "source": "TheMealDB", "data": recipe}
+            self._send(payload)
+            self._save_file("detail", payload)
+
+        elif req_type == "QUIT":
+            self._send({"type": "BYE"})
+            self._log("Client sent QUIT.")
+
+        else:
+            self._send({"type": "ERROR", "message": f"Unknown request type: {req_type}"})
+
+    # Serializes the object to JSON, prepends a 4-byte big-endian length header, and sends it
+    def _send(self, obj):
+        data   = json.dumps(obj).encode()
+        length = len(data).to_bytes(4, "big")
+        self.conn.sendall(length + data)
+
+    # Reads the 4-byte header to determine message size, then reads exactly that many bytes
+    def _recv(self):
+        length_bytes = self._recv_exact(4)
+        if length_bytes is None:
+            return None
+        msg_len = int.from_bytes(length_bytes, "big")
+        raw     = self._recv_exact(msg_len)
+        if raw is None:
+            return None
+        return json.loads(raw.decode())
+
+    # Guarantees exactly n bytes are read from the TCP stream, handling chunked delivery
+    def _recv_exact(self, n):
+        buf = b""
+        while len(buf) < n:
+            chunk = self.conn.recv(n - len(buf))
+            if not chunk:
+                return None
+            buf += chunk
+        return buf
+
+    # Saves the server response to a JSON file named: {client_name}_{operation}_{group_id}.json
+    def _save_file(self, option, data):
+        filename = f"{self.client_name}_{option}_{group_id}.json"
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+    # Prints a timestamped log message to the server console
+    def _log(self, msg):
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        print(f"[{timestamp}] [{self.client_name}] {msg}", flush=True)
+```
+#### Class Server
+
+This class is the main server controller manages startup tasks such as loading the cache, saving the reference file, binding the TCP socket, and running the accept loop, which spawns a new Clienthandler thread for each incoming connection.
+
+```python
+class Server:
+    # Loads the cache, saves the reference file, binds the socket, and begins accepting clients
+    def start(self):
+        self.cache.load(self.api)
+        self.cache.save_to_file(f"reference_cache_{group_id}.json")
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.bind((self.host, self.port))
+        self.server_socket.listen(5)
+        print(f"[Info] Server listening on {self.host}:{self.port}")
+        print(f"[Info] Group: {group_id}")
+        print(f"[Info] Ready for clients. Press Ctrl+C to stop the server.")
+        self._accept_loop()
+
+    # Blocks waiting for new connections and delegates each one to a Clienhandler thread
+    def _accept_loop(self):
+        try:
+            while True:
+                conn, addr = self.server_socket.accept()
+                active     = threading.active_count() - 1
+                print(f"[Info] New connection from {addr[0]}:{addr[1]} (Active clients: {active})")
+                handler = Clienhandler(conn, addr, self.cache, self.api)
+                handler.start()
+        except KeyboardInterrupt:
+            print("\n[Info] Server shutting down...")
+        finally:
+            if self.server_socket:
+                self.server_socket.close()
+                print("[Info] Server socket closed.")
 
 ---
 
