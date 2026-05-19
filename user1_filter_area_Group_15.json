@@ -1,0 +1,81 @@
+{
+  "type": "RECIPE_LIST",
+  "source": "TheMealDB",
+  "data": [
+    {
+      "idMeal": "53193",
+      "name": "Drunken noodles (pad kee mao)",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/2wx8cm1763373419.jpg"
+    },
+    {
+      "idMeal": "53211",
+      "name": "Lemongrass beef stew with noodles",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/ntafxw1763586291.jpg"
+    },
+    {
+      "idMeal": "52827",
+      "name": "Massaman Beef curry",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/tvttqv1504640475.jpg"
+    },
+    {
+      "idMeal": "52774",
+      "name": "Pad See Ew",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/uuuspp1468263334.jpg"
+    },
+    {
+      "idMeal": "53191",
+      "name": "Pad Thai",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/rg9ze01763479093.jpg"
+    },
+    {
+      "idMeal": "53192",
+      "name": "Panang chicken curry (kaeng panang gai)",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/0dhtwr1763371444.jpg"
+    },
+    {
+      "idMeal": "53200",
+      "name": "Prawn stir-fry",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/96lt871763480970.jpg"
+    },
+    {
+      "idMeal": "53204",
+      "name": "Red curry chicken kebabs",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/prjve31763486864.jpg"
+    },
+    {
+      "idMeal": "53209",
+      "name": "Spicy Thai prawn noodles",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/568t931763584227.jpg"
+    },
+    {
+      "idMeal": "53201",
+      "name": "Stir-fried chicken with chillies & basil",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/el64dy1763483009.jpg"
+    },
+    {
+      "idMeal": "53199",
+      "name": "Thai beef stir-fry",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/kyuxew1763479470.jpg"
+    },
+    {
+      "idMeal": "53206",
+      "name": "Thai chicken cakes with sweet chilli sauce",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/6s3i3p1763488540.jpg"
+    },
+    {
+      "idMeal": "53208",
+      "name": "Thai coconut & veg broth",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/4k8nzy1763583384.jpg"
+    },
+    {
+      "idMeal": "53195",
+      "name": "Thai curry noodle soup",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/118oj61763423896.jpg"
+    },
+    {
+      "idMeal": "53212",
+      "name": "Thai drumsticks",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/ittake1763586925.jpg"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "type": "RECIPE_LIST",
+  "source": "TheMealDB",
+  "data": [
+    {
+      "idMeal": "53191",
+      "name": "Pad Thai",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/rg9ze01763479093.jpg"
+    }
+  ]
+}

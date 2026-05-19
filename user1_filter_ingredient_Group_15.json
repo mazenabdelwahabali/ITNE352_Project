@@ -1,0 +1,81 @@
+{
+  "type": "RECIPE_LIST",
+  "source": "TheMealDB",
+  "data": [
+    {
+      "idMeal": "52997",
+      "name": "Beef Banh Mi Bowls with Sriracha Mayo, Carrot & Pickled Cucumber",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/z0ageb1583189517.jpg"
+    },
+    {
+      "idMeal": "53161",
+      "name": "Chicken & chorizo rice pot",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/fk80jp1763280767.jpg"
+    },
+    {
+      "idMeal": "52956",
+      "name": "Chicken Congee",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/1529446352.jpg"
+    },
+    {
+      "idMeal": "53031",
+      "name": "Egyptian Fatteh",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/rlwcc51598734603.jpg"
+    },
+    {
+      "idMeal": "53021",
+      "name": "Golabki (cabbage roll)",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/q8sp3j1593349686.jpg"
+    },
+    {
+      "idMeal": "53352",
+      "name": "Jamaican Instant Pot Rice and Beans",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/11bvtm1764795135.jpg"
+    },
+    {
+      "idMeal": "53357",
+      "name": "Jamaican Rice and Peas",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/pkyvrn1764878267.jpg"
+    },
+    {
+      "idMeal": "53220",
+      "name": "kabse",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/utqnjv1763598650.jpg"
+    },
+    {
+      "idMeal": "52887",
+      "name": "Kedgeree",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/utxqpt1511639216.jpg"
+    },
+    {
+      "idMeal": "53027",
+      "name": "Koshari",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/4er7mj1598733193.jpg"
+    },
+    {
+      "idMeal": "53083",
+      "name": "Lamb Pilaf (Plov)",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/kos9av1699014767.jpg"
+    },
+    {
+      "idMeal": "53051",
+      "name": "Nasi lemak",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/wai9bw1619788844.jpg"
+    },
+    {
+      "idMeal": "52823",
+      "name": "Salmon Prawn Risotto",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/xxrxux1503070723.jpg"
+    },
+    {
+      "idMeal": "53167",
+      "name": "Seafood rice",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/5r5rvx1763287943.jpg"
+    },
+    {
+      "idMeal": "53054",
+      "name": "Seri muka kuih",
+      "thumbnail": "https://www.themealdb.com/images/media/meals/6ut2og1619790195.jpg"
+    }
+  ]
+}
